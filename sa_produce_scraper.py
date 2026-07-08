@@ -19,6 +19,7 @@ where the price table lives, and update the CSS selectors marked
 "UPDATE ME" below.
 """
 
+import io
 import os
 import re
 import time
@@ -119,7 +120,7 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
         # Try pandas' HTML table parser first -- it's forgiving of most
         # standard <table> markup and saves us writing manual XPath/CSS.
         try:
-            tables = pd.read_html(html)
+            tables = pd.read_html(io.StringIO(html))
         except ValueError:
             tables = []
 

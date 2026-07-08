@@ -16,6 +16,7 @@ Output:
   produce_dashboard.png
 """
 
+import re
 import sys
 
 import matplotlib.pyplot as plt
@@ -54,24 +55,41 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
     )
     df = df.rename(columns={name_col: "produce_name"})
 
-    # Identify a numeric price column.
-    price_col = next(
-        (c for c in df.columns if "price" in c or "avg" in c or "average" in c),
-        None,
-    )
-    if price_col is None:
-        print("Could not find a price column in the master CSV. "
-              "Check the scraper output columns and update this script.")
-        sys.exit(1)
+    def daily_figure(cell: str):
+        """Extract today's number from cells like 'R4,527,993.00 MTD: R34,068,059.00'."""
+        today_part = str(cell).split("MTD")[0]
+        digits = re.sub(r"[^\d.\-]", "", today_part)
+        return float(digits) if digits not in ("", "-", ".") else None
 
-    # Coerce price to numeric, stripping currency symbols/commas if present.
-    df["price"] = (
-        df[price_col]
-        .astype(str)
-        .str.replace(r"[^\d\.\-]", "", regex=True)
-        .replace("", None)
-        .astype(float)
-    )
+    # Joburg/Pretoria market tables report "total value sold" and "total qty sold"
+    # (with month-to-date figures appended) rather than a plain price column --
+    # derive an average price per unit sold from those.
+    value_col = next((c for c in df.columns if "value sold" in c), None)
+    qty_col = next((c for c in df.columns if "qty sold" in c or "quantity sold" in c), None)
+
+    if value_col and qty_col:
+        value_sold = df[value_col].apply(daily_figure)
+        qty_sold = df[qty_col].apply(daily_figure)
+        df["price"] = value_sold / qty_sold.replace(0, pd.NA)
+    else:
+        # Fallback: look for an explicit price/average column.
+        price_col = next(
+            (c for c in df.columns if "price" in c or "avg" in c or "average" in c),
+            None,
+        )
+        if price_col is None:
+            print("Could not find a price column in the master CSV. "
+                  "Check the scraper output columns and update this script.")
+            sys.exit(1)
+
+        # Coerce price to numeric, stripping currency symbols/commas if present.
+        df["price"] = (
+            df[price_col]
+            .astype(str)
+            .str.replace(r"[^\d\.\-]", "", regex=True)
+            .replace("", None)
+            .astype(float)
+        )
 
     # Bucket produce into the three categories we track.
     def bucket(name: str) -> str:
