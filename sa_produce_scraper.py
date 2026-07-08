@@ -26,6 +26,7 @@ from datetime import date
 
 import pandas as pd
 from selenium import webdriver
+from git_autocommit import commit_and_push
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -185,6 +186,8 @@ def main():
 
     master_df.to_csv(MASTER_CSV, index=False)
     print(f"Master CSV updated: {len(master_df)} total records")
+
+    commit_and_push([MASTER_CSV], f"Add {TODAY} price data")
 
 
 if __name__ == "__main__":

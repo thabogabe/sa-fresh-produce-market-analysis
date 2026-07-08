@@ -49,6 +49,11 @@ This produces `produce_dashboard.png` with:
 3. Price volatility (rolling standard deviation)
 4. Latest snapshot — average price by produce type
 
+Both scripts auto-commit and push their output (`produce_prices_master.csv`,
+`produce_dashboard.png`) to this repo after each run, via `git_autocommit.py`. This is
+best-effort — if git isn't configured or there's no network, it just prints a warning and
+the script still exits normally.
+
 ### Debugging empty results
 
 Market sites occasionally change their HTML structure. Each scraper run saves

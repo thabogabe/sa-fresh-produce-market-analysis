@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+from git_autocommit import commit_and_push
+
 MASTER_CSV = "produce_prices_master.csv"
 OUTPUT_IMAGE = "produce_dashboard.png"
 
@@ -161,6 +163,8 @@ def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(out_path, dpi=150)
     print(f"Dashboard saved to {out_path}")
+
+    commit_and_push([out_path], "Update price dashboard")
 
 
 def main():
