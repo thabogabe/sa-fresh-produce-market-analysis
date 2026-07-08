@@ -70,14 +70,24 @@ approach if you want to finish it.
 
 ## Automating daily runs
 
-Joburg Market updates prices between 12:00 and 13:00 on weekdays.
+Joburg Market updates prices between 12:00 and 13:00 on weekdays. This project runs daily
+(including weekends) at 14:10 to leave room for update delays — re-scraping on a day with no
+new prices is harmless since `produce_prices_master.csv` drops exact duplicate rows.
 
-**Windows (Task Scheduler):** create a daily trigger at 13:00 that runs
-`venv\Scripts\python.exe sa_produce_scraper.py` with the project folder as the start-in directory.
+**Windows (Task Scheduler):** a task named `Fresh Produce Scraper` is registered to run
+`run_scraper.bat` daily at 14:10, which `cd`s into the project folder, runs
+`venv\Scripts\python.exe sa_produce_scraper.py`, and appends output to `scraper_log.txt`
+(gitignored). To recreate it on another machine:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "C:\path\to\project\run_scraper.bat" -WorkingDirectory "C:\path\to\project"
+$trigger = New-ScheduledTaskTrigger -Daily -At 14:10
+Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigger $trigger
+```
 
 **Mac/Linux (cron):**
 ```
-0 13 * * 1-5 /path/to/venv/bin/python /path/to/sa_produce_scraper.py
+10 14 * * * /path/to/venv/bin/python /path/to/sa_produce_scraper.py >> scraper_log.txt 2>&1
 ```
 
 ## Roadmap

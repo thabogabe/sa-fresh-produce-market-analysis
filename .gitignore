@@ -7,3 +7,4 @@ __pycache__/
 page_source_*.html
 prices_joburg_*.csv
 prices_pretoria_*.csv
+scraper_log.txt
