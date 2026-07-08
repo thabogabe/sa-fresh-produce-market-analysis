@@ -51,12 +51,26 @@ MARKETS = {
     },
     "pretoria": {
         "name": "Pretoria Market",
-        "url": "https://www.tshwane.gov.za/?page_id=10509",
-        # UPDATE ME: same idea for the Tshwane page. This site sometimes
-        # links out to a PDF instead of an HTML table -- if so, this
-        # scraper will save the page source and you'll need pdfplumber
-        # to pull the PDF link and parse it separately.
+        # The public page (tshwane.gov.za/?page_id=10509) just embeds this
+        # page in an iframe, which Selenium's page_source doesn't capture --
+        # navigate straight to the source instead.
+        "url": "https://tfpm.tshwane.gov.za/ViewDailyStats.aspx",
         "table_selector": "table",
+        # KNOWN LIMITATION: unlike Joburg, this page has no single price
+        # table -- it's a 3-level ASP.NET drill-down (search a product name
+        # -> pick a product match -> pick a grade/container/mass SKU variant
+        # -> that SKU's page has the actual sales/price stats, often empty
+        # for a given day). Reaching parity with the Joburg scraper means
+        # searching each TARGET_PRODUCE term, walking every matched
+        # product's SKU list via
+        #   driver.execute_script("__doPostBack('ctl00$ContentPlaceHolder1$GridView1','Select$<i>')")
+        # then each SKU via
+        #   driver.execute_script("__doPostBack('ctl00$ContentPlaceHolder1$GridView2','Select$<j>')")
+        # (driver.back() reliably returns to the prior grid between clicks,
+        # so this doesn't require restarting the search each time), then
+        # parsing the resulting detail table for VALUE OF SALES / QUANTITY
+        # SOLD / AVERAGE PRICE and aggregating per product. Not implemented:
+        # this scraper currently only saves the page source for debugging.
     },
 }
 
@@ -75,6 +89,10 @@ def build_driver(headless: bool = True) -> webdriver.Chrome:
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
+    # tshwane.gov.za and its tfpm.tshwane.gov.za subdomain serve an invalid
+    # certificate; without this Chrome shows a privacy-error interstitial
+    # instead of the real page.
+    options.add_argument("--ignore-certificate-errors")
     options.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -129,21 +147,29 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
             return rows_df, html
 
         # Combine all tables, then filter to rows mentioning our target produce.
-        combined = pd.concat(tables, ignore_index=True, sort=False)
-        combined.columns = [str(c).strip().lower() for c in combined.columns]
+        # Layout/nested tables on some sites (e.g. Pretoria's ASP.NET pages)
+        # can produce mismatched or multi-level columns that pandas can't
+        # concat -- treat that the same as "no usable tables" rather than
+        # letting it crash the whole scrape.
+        try:
+            combined = pd.concat(tables, ignore_index=True, sort=False)
+            combined.columns = [str(c).strip().lower() for c in combined.columns]
 
-        # Find a column that looks like it holds the produce/commodity name.
-        name_col = None
-        for col in combined.columns:
-            if any(key in col for key in ["produce", "commodity", "product", "description", "item"]):
-                name_col = col
-                break
-        if name_col is None:
-            name_col = combined.columns[0]
+            # Find a column that looks like it holds the produce/commodity name.
+            name_col = None
+            for col in combined.columns:
+                if any(key in col for key in ["produce", "commodity", "product", "description", "item"]):
+                    name_col = col
+                    break
+            if name_col is None:
+                name_col = combined.columns[0]
 
-        pattern = "|".join(TARGET_PRODUCE)
-        mask = combined[name_col].astype(str).str.contains(pattern, case=False, na=False, regex=True)
-        rows_df = combined[mask].copy()
+            pattern = "|".join(TARGET_PRODUCE)
+            mask = combined[name_col].astype(str).str.contains(pattern, case=False, na=False, regex=True)
+            rows_df = combined[mask].copy()
+        except Exception as e:
+            print(f"  Could not parse tables on {cfg['name']} page ({e}); see {snapshot_path}.")
+            return rows_df, html
 
         rows_df["market"] = cfg["name"]
         rows_df["date_scraped"] = TODAY

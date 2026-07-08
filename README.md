@@ -60,6 +60,14 @@ Market sites occasionally change their HTML structure. Each scraper run saves
 `page_source_<market>.html` — open it in a browser to find where the price table moved, then
 update the CSS selectors in `sa_produce_scraper.py` marked `UPDATE ME`.
 
+**Known limitation — Pretoria Market:** unlike Joburg's single price table, Tshwane's data
+lives behind a 3-level ASP.NET search/drill-down (product name → product match → grade/
+container/mass SKU variant → per-SKU sales stats). The scraper currently only navigates to
+the correct page (fixing an SSL interstitial and an iframe redirect that made it look like
+there was no data at all) and saves the page source; it doesn't walk the full drill-down yet.
+See the comment above `MARKETS["pretoria"]` in `sa_produce_scraper.py` for the mapped-out
+approach if you want to finish it.
+
 ## Automating daily runs
 
 Joburg Market updates prices between 12:00 and 13:00 on weekdays.
