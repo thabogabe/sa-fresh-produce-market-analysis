@@ -1,12 +1,14 @@
 # SA Fresh Produce Market Analysis
 
-Scrapes daily fresh produce prices (tomatoes, chillies, peppers) from South Africa's two largest
-fresh produce markets — the [Joburg Market](https://www.joburgmarket.co.za/jhb-market/dailyprices.php)
-and the [Pretoria Market](https://www.tshwane.gov.za/?page_id=10509) — and runs time-series price
+Scrapes daily fresh produce prices (tomatoes, chillies, peppers, onions, garlic, potatoes,
+spinach) from South Africa's two largest fresh produce markets — the
+[Joburg Market](https://www.joburgmarket.co.za/jhb-market/dailyprices.php) and the
+[Pretoria Market](https://www.tshwane.gov.za/?page_id=10509) — and runs time-series price
 analysis on the collected data.
 
 The pipeline runs daily, appending each day's data to a master CSV, then feeding it into a
-4-panel dashboard showing price trends, market comparisons and volatility.
+5-panel dashboard showing price trends, market comparisons, volatility, and today's price
+against the month-to-date average.
 
 ## Project files
 
@@ -48,6 +50,7 @@ This produces `produce_dashboard.png` with:
 2. Joburg Market vs Pretoria Market price comparison
 3. Price volatility (rolling standard deviation)
 4. Latest snapshot — average price by produce type
+5. Today's price vs this month's average price (month-to-date)
 
 Both scripts auto-commit and push their output (`produce_prices_master.csv`,
 `produce_dashboard.png`) to this repo after each run, via `git_autocommit.py`. This is
@@ -96,7 +99,7 @@ Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigge
 - [ ] Overlay SA Weather Service rainfall/drought data against price spikes
 - [ ] Correlate EskomSePush load-shedding stage history against price jumps
 - [ ] Export to Power BI for an interactive dashboard
-- [ ] Expand `TARGET_PRODUCE` to onions, garlic, potatoes, spinach
+- [x] Expand `TARGET_PRODUCE` to onions, garlic, potatoes, spinach
 
 ## Stack
 

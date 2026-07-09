@@ -21,6 +21,7 @@ Output:
 import re
 import sys
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -105,7 +106,8 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
         )
         df["mtd_price"] = pd.NA
 
-    # Bucket produce into the three categories we track.
+    # Bucket produce into the categories we track (mirrors the scraper's
+    # TARGET_PRODUCE list).
     def bucket(name: str) -> str:
         name = str(name).lower()
         if "tomato" in name:
@@ -114,6 +116,14 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
             return "Chillies"
         if "pepper" in name:
             return "Peppers"
+        if "onion" in name:
+            return "Onions"
+        if "garlic" in name:
+            return "Garlic"
+        if "potato" in name:
+            return "Potatoes"
+        if "spinach" in name:
+            return "Spinach"
         return "Other"
 
     df["produce_category"] = df["produce_name"].apply(bucket)
@@ -129,13 +139,34 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
 # Dashboard
 # --------------------------------------------------------------------------
 
+def _format_date_axis(ax, dates: pd.Series) -> None:
+    """
+    Unambiguous "08 Jul 2026" tick labels (day before month, spelled out,
+    so it can't be misread as month-first), with the axis bounded tightly
+    to the real data range instead of matplotlib's autoscale -- which, with
+    only one or two points, was padding out to a multi-year range full of
+    dates with no data.
+    """
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b %Y"))
+    unique_dates = pd.Series(dates.dropna().unique()).sort_values()
+    min_date, max_date = unique_dates.iloc[0], unique_dates.iloc[-1]
+    pad = pd.Timedelta(days=1) if min_date == max_date else (max_date - min_date) * 0.05
+    ax.set_xlim(min_date - pad, max_date + pad)
+    if len(unique_dates) <= 15:
+        # One tick per actual scrape date -- avoids duplicate same-day
+        # labels that AutoDateLocator adds when the span is only a day
+        # or two.
+        ax.set_xticks(unique_dates)
+    else:
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=10))
+
 def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
     fig = plt.figure(figsize=(14, 15))
     gs = fig.add_gridspec(3, 2)
     axes = np.array([[fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1])],
                       [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]])
     ax_mtd = fig.add_subplot(gs[2, :])
-    fig.suptitle("SA Fresh Produce Price Dashboard — Tomatoes | Chillies | Peppers",
+    fig.suptitle("SA Fresh Produce Price Dashboard",
                  fontsize=15, fontweight="bold")
 
     has_dates = "date_scraped" in df.columns and df["date_scraped"].notna().any()
@@ -150,6 +181,7 @@ def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
         ax.set_xlabel("Date")
         ax.set_ylabel("Avg. Price")
         ax.legend()
+        _format_date_axis(ax, trend["date_scraped"])
         ax.tick_params(axis="x", rotation=45)
     else:
         ax.text(0.5, 0.5, "Not enough dated data yet", ha="center", va="center")
@@ -175,6 +207,7 @@ def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
         ax.set_xlabel("Date")
         ax.set_ylabel("Std. Dev.")
         ax.legend()
+        _format_date_axis(ax, pivot.index.to_series())
         ax.tick_params(axis="x", rotation=45)
     else:
         ax.text(0.5, 0.5, "Need multiple days of data\nto compute volatility",

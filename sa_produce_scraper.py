@@ -1,7 +1,8 @@
 """
 sa_produce_scraper.py
 ----------------------
-Scrapes daily fresh produce prices (tomatoes, chillies, peppers) from:
+Scrapes daily fresh produce prices (tomatoes, chillies, peppers, onions,
+garlic, potatoes, spinach) from:
   - Joburg Market:   https://www.joburgmarket.co.za/jhb-market/dailyprices.php
   - Pretoria Market: https://www.tshwane.gov.za/?page_id=10509
 
@@ -39,7 +40,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 # Config
 # --------------------------------------------------------------------------
 
-TARGET_PRODUCE = ["tomato", "chilli", "chili", "pepper"]
+TARGET_PRODUCE = ["tomato", "chilli", "chili", "pepper", "onion", "garlic", "potato", "spinach"]
 
 MARKETS = {
     "joburg": {
