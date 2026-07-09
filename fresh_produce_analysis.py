@@ -23,7 +23,6 @@ import sys
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -65,24 +64,31 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
         digits = re.sub(r"[^\d.\-]", "", today_part)
         return float(digits) if digits not in ("", "-", ".") else None
 
-    # Joburg/Pretoria market tables report "total value sold" and "total qty sold"
-    # (with month-to-date figures appended) rather than a plain price column --
-    # derive an average price per unit sold from those.
+    # Joburg/Pretoria market tables report "total value sold", "total qty sold"
+    # and "total kg sold" (with month-to-date figures appended) rather than a
+    # plain price column. We divide by kg, not the "qty sold" unit count --
+    # produce is sold in mixed, commodity-specific packaging (pockets,
+    # crates, bags), so a raw "price per unit" tells a farmer nothing about
+    # what quantity that price bought. Rand-per-kg is the one figure that's
+    # comparable across commodities and packaging.
     value_col = next((c for c in df.columns if "value sold" in c), None)
+    kg_col = next((c for c in df.columns if "kg sold" in c), None)
     qty_col = next((c for c in df.columns if "qty sold" in c or "quantity sold" in c), None)
+    denom_col = kg_col or qty_col
 
-    if value_col and qty_col:
+    if value_col and denom_col:
         value_sold = df[value_col].apply(daily_figure)
-        qty_sold = df[qty_col].apply(daily_figure)
-        df["price"] = value_sold / qty_sold.replace(0, pd.NA)
+        denom_sold = df[denom_col].apply(daily_figure)
+        df["price"] = value_sold / denom_sold.replace(0, pd.NA)
+        df["price_unit"] = "R/kg" if denom_col == kg_col else "R/unit sold"
 
         # The scraper also splits out "<name> mtd" cumulative columns --
         # derive a month-to-date average price the same way.
-        mtd_value_col, mtd_qty_col = f"{value_col} mtd", f"{qty_col} mtd"
-        if mtd_value_col in df.columns and mtd_qty_col in df.columns:
+        mtd_value_col, mtd_denom_col = f"{value_col} mtd", f"{denom_col} mtd"
+        if mtd_value_col in df.columns and mtd_denom_col in df.columns:
             mtd_value = df[mtd_value_col].apply(daily_figure)
-            mtd_qty = df[mtd_qty_col].apply(daily_figure)
-            df["mtd_price"] = mtd_value / mtd_qty.replace(0, pd.NA)
+            mtd_denom = df[mtd_denom_col].apply(daily_figure)
+            df["mtd_price"] = mtd_value / mtd_denom.replace(0, pd.NA)
         else:
             df["mtd_price"] = pd.NA
     else:
@@ -105,29 +111,23 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
             .astype(float)
         )
         df["mtd_price"] = pd.NA
+        df["price_unit"] = "R"
 
-    # Bucket produce into the categories we track (mirrors the scraper's
-    # TARGET_PRODUCE list).
-    def bucket(name: str) -> str:
-        name = str(name).lower()
-        if "tomato" in name:
-            return "Tomatoes"
-        if "chilli" in name or "chili" in name:
-            return "Chillies"
-        if "pepper" in name:
-            return "Peppers"
-        if "onion" in name:
-            return "Onions"
-        if "garlic" in name:
-            return "Garlic"
-        if "potato" in name:
-            return "Potatoes"
-        if "spinach" in name:
-            return "Spinach"
-        return "Other"
-
-    df["produce_category"] = df["produce_name"].apply(bucket)
-    df = df[df["produce_category"] != "Other"]
+    # Track each specific product on its own line/bar (e.g. "Red Peppers"
+    # and "Green Peppers" separately) rather than folding it into a broad
+    # "Peppers" bucket -- averaging different products (or fresh vs.
+    # processed goods, like dried tomatoes at ~R300/kg vs. fresh at ~R18/kg)
+    # together produces a number that doesn't correspond to anything a
+    # farmer actually sells.
+    TRACKED_KEYWORDS = [
+        "tomato", "chilli", "chili", "pepper", "onion", "garlic", "potato", "spinach", "bean",
+        "ginger", "lettuce", "cabbage", "cucumber", "broccoli", "pumpkin", "carrot", "beetroot",
+    ]
+    is_tracked = df["produce_name"].astype(str).str.lower().apply(
+        lambda name: any(k in name for k in TRACKED_KEYWORDS)
+    )
+    df = df[is_tracked]
+    df["produce_category"] = df["produce_name"].astype(str).str.strip().str.title()
 
     if "market" not in df.columns:
         df["market"] = "Unknown"
@@ -160,74 +160,120 @@ def _format_date_axis(ax, dates: pd.Series) -> None:
     else:
         ax.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=10))
 
+def _label_bars(ax, fmt: str = "%.1f") -> None:
+    for container in ax.containers:
+        ax.bar_label(container, fmt=fmt, fontsize=7, padding=3)
+
+
 def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
-    fig = plt.figure(figsize=(14, 15))
-    gs = fig.add_gridspec(3, 2)
-    axes = np.array([[fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1])],
-                      [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]])
-    ax_mtd = fig.add_subplot(gs[2, :])
-    fig.suptitle("SA Fresh Produce Price Dashboard",
-                 fontsize=15, fontweight="bold")
+    # Prices are Rand-per-kg wherever the source data allows it (see
+    # load_data) -- surface that unit everywhere so it's never ambiguous
+    # what quantity/packaging a price refers to.
+    price_unit = df["price_unit"].mode().iat[0] if "price_unit" in df.columns and not df["price_unit"].mode().empty else "R"
 
     has_dates = "date_scraped" in df.columns and df["date_scraped"].notna().any()
 
+    # Tracking individual products (not broad buckets) means this list keeps
+    # growing -- 40+ rows/lines now, more as new produce gets added. Bar
+    # panels get one horizontal row per product (so labels never overlap,
+    # unlike rotated vertical bar labels), sized to the actual count instead
+    # of a fixed height, and a log price scale so a R2/kg item and a
+    # R300/kg item are both still legible on the same chart.
+    n_categories = max(df["produce_category"].nunique(), 1)
+    bar_h = max(4.0, n_categories * 0.32)
+    top_h = max(4.5, n_categories * 0.09)
+    fig_h = top_h + 1.9 + bar_h * 3
+    fig = plt.figure(figsize=(15, fig_h))
+    gs = fig.add_gridspec(4, 2, height_ratios=[top_h, bar_h, bar_h, bar_h],
+                           hspace=0.4, wspace=0.25, top=1 - 1.4 / fig_h, bottom=0.01)
+    ax_trend = fig.add_subplot(gs[0, 0])
+    ax_vol = fig.add_subplot(gs[0, 1])
+    ax_market = fig.add_subplot(gs[1, :])
+    ax_snapshot = fig.add_subplot(gs[2, :])
+    ax_mtd = fig.add_subplot(gs[3, :])
+
+    fig.suptitle(f"SA Fresh Produce Price Dashboard ({price_unit})",
+                 fontsize=16, fontweight="bold")
+
+    # matplotlib's default color cycle only has 10 colors before repeating;
+    # tab20+tab20b covers up to 40 distinct products before that happens.
+    category_colors = (sns.color_palette("tab20", 20) + sns.color_palette("tab20b", 20))[:n_categories]
+
     # 1. Price trend over time per produce type
-    ax = axes[0, 0]
     if has_dates:
+        ax_trend.set_prop_cycle(color=category_colors)
         trend = df.groupby(["date_scraped", "produce_category"])["price"].mean().reset_index()
         for category, sub in trend.groupby("produce_category"):
-            ax.plot(sub["date_scraped"], sub["price"], marker="o", label=category)
-        ax.set_title("Price Trend Over Time")
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Avg. Price")
-        ax.legend()
-        _format_date_axis(ax, trend["date_scraped"])
-        ax.tick_params(axis="x", rotation=45)
+            ax_trend.plot(sub["date_scraped"], sub["price"], marker="o", markersize=3,
+                          linewidth=1, label=category)
+        ax_trend.set_title("Price Trend Over Time")
+        ax_trend.set_xlabel("Date")
+        ax_trend.set_ylabel(f"Avg. Price ({price_unit}, log scale)")
+        ax_trend.set_yscale("log")
+        _format_date_axis(ax_trend, trend["date_scraped"])
+        ax_trend.tick_params(axis="x", rotation=45)
     else:
-        ax.text(0.5, 0.5, "Not enough dated data yet", ha="center", va="center")
-        ax.set_title("Price Trend Over Time")
+        ax_trend.text(0.5, 0.5, "Not enough dated data yet", ha="center", va="center")
+        ax_trend.set_title("Price Trend Over Time")
 
-    # 2. Market comparison
-    ax = axes[0, 1]
-    market_compare = df.groupby(["market", "produce_category"])["price"].mean().reset_index()
-    sns.barplot(data=market_compare, x="produce_category", y="price", hue="market", ax=ax)
-    ax.set_title("Joburg vs Pretoria — Avg. Price")
-    ax.set_xlabel("")
-    ax.set_ylabel("Avg. Price")
-
-    # 3. Volatility (rolling std dev), if enough dated observations exist
-    ax = axes[1, 0]
+    # 2. Volatility (rolling std dev), if enough dated observations exist
     if has_dates:
+        ax_vol.set_prop_cycle(color=category_colors)
         pivot = df.pivot_table(index="date_scraped", columns="produce_category",
                                 values="price", aggfunc="mean").sort_index()
         rolling_std = pivot.rolling(window=3, min_periods=1).std()
         for category in rolling_std.columns:
-            ax.plot(rolling_std.index, rolling_std[category], marker="o", label=category)
-        ax.set_title("Price Volatility (3-point Rolling Std Dev)")
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Std. Dev.")
-        ax.legend()
-        _format_date_axis(ax, pivot.index.to_series())
-        ax.tick_params(axis="x", rotation=45)
+            ax_vol.plot(rolling_std.index, rolling_std[category], marker="o", markersize=3,
+                        linewidth=1, label=category)
+        ax_vol.set_title("Price Volatility (3-point Rolling Std Dev)")
+        ax_vol.set_xlabel("Date")
+        ax_vol.set_ylabel(f"Std. Dev. ({price_unit})")
+        _format_date_axis(ax_vol, pivot.index.to_series())
+        ax_vol.tick_params(axis="x", rotation=45)
+
+        # One shared legend for both line panels (same color mapping) in
+        # the right margin -- a legend per panel had nowhere wide enough
+        # to go between the two side-by-side plots and was getting clipped
+        # to single characters.
+        ncol = 1 if n_categories <= 15 else 2 if n_categories <= 30 else 3
+        handles, labels = ax_trend.get_legend_handles_labels()
+        fig.legend(handles, labels, loc="center left", bbox_to_anchor=(1.005, 0.5),
+                   bbox_transform=ax_vol.transAxes, fontsize=6.5, ncol=ncol,
+                   columnspacing=1, handlelength=1.3, borderaxespad=0)
     else:
-        ax.text(0.5, 0.5, "Need multiple days of data\nto compute volatility",
-                ha="center", va="center")
-        ax.set_title("Price Volatility")
+        ax_vol.text(0.5, 0.5, "Need multiple days of data\nto compute volatility",
+                    ha="center", va="center")
+        ax_vol.set_title("Price Volatility")
+
+    latest_date = df["date_scraped"].max() if has_dates else None
+    latest = df[df["date_scraped"] == latest_date] if has_dates else df
+    title_suffix = f" ({latest_date.strftime('%d %b %Y')})" if has_dates else ""
+
+    # Sort every bar panel by today's price, high to low, so the same
+    # product order is used throughout the dashboard -- once you find
+    # "Carrots" in one panel, it's in the same place in the others.
+    order = (latest.groupby("produce_category")["price"].mean()
+             .sort_values(ascending=False).index.tolist())
+
+    # 3. Market comparison (Joburg vs Pretoria)
+    market_compare = df.groupby(["market", "produce_category"])["price"].mean().reset_index()
+    sns.barplot(data=market_compare, y="produce_category", x="price", hue="market",
+                order=order, ax=ax_market)
+    ax_market.set_title("Joburg vs Pretoria — Avg. Price")
+    ax_market.set_ylabel("")
+    ax_market.set_xlabel(f"Avg. Price ({price_unit}, log scale)")
+    ax_market.set_xscale("log")
+    _label_bars(ax_market)
 
     # 4. Latest snapshot — average price by produce type
-    ax = axes[1, 1]
-    if has_dates:
-        latest_date = df["date_scraped"].max()
-        latest = df[df["date_scraped"] == latest_date]
-        title_suffix = f" ({latest_date.date()})"
-    else:
-        latest = df
-        title_suffix = ""
-    snapshot = latest.groupby("produce_category")["price"].mean().reset_index()
-    sns.barplot(data=snapshot, x="produce_category", y="price", ax=ax, palette="viridis")
-    ax.set_title(f"Latest Snapshot — Avg. Price{title_suffix}")
-    ax.set_xlabel("")
-    ax.set_ylabel("Avg. Price")
+    snapshot = latest.groupby("produce_category")["price"].mean().reindex(order).reset_index()
+    sns.barplot(data=snapshot, y="produce_category", x="price", hue="produce_category",
+                order=order, palette="viridis", legend=False, ax=ax_snapshot)
+    ax_snapshot.set_title(f"Latest Snapshot — Avg. Price{title_suffix}")
+    ax_snapshot.set_ylabel("")
+    ax_snapshot.set_xlabel(f"Avg. Price ({price_unit}, log scale)")
+    ax_snapshot.set_xscale("log")
+    _label_bars(ax_snapshot)
 
     # 5. Today's price vs this month's average -- smooths out day-to-day
     # noise using the market's own month-to-date sales figures.
@@ -239,18 +285,22 @@ def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
                                         var_name="metric", value_name="value")
         mtd_compare["metric"] = mtd_compare["metric"].map(
             {"price": "Today", "mtd_price": "Month-to-Date Avg."})
-        sns.barplot(data=mtd_compare, x="produce_category", y="value", hue="metric", ax=ax_mtd)
+        sns.barplot(data=mtd_compare, y="produce_category", x="value", hue="metric",
+                    order=order, ax=ax_mtd)
         ax_mtd.set_title(f"Today's Price vs Month-to-Date Average{title_suffix}")
-        ax_mtd.set_xlabel("")
-        ax_mtd.set_ylabel("Price")
-        ax_mtd.legend(title="")
+        ax_mtd.set_ylabel("")
+        ax_mtd.set_xlabel(f"Price ({price_unit}, log scale)")
+        ax_mtd.set_xscale("log")
+        ax_mtd.legend(title="", fontsize=8)
+        _label_bars(ax_mtd)
     else:
         ax_mtd.text(0.5, 0.5, "No month-to-date figures in this data yet",
                      ha="center", va="center")
         ax_mtd.set_title("Today's Price vs Month-to-Date Average")
 
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
-    plt.savefig(out_path, dpi=150)
+    # bbox_inches="tight" so the trend/volatility legends placed outside
+    # the axes don't get clipped off the saved image.
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     print(f"Dashboard saved to {out_path}")
 
     commit_and_push([out_path], "Update price dashboard")
