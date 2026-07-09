@@ -2,12 +2,14 @@
 fresh_produce_analysis.py
 --------------------------
 Reads produce_prices_master.csv (built by sa_produce_scraper.py) and
-generates a 4-panel dashboard PNG:
+generates a 5-panel dashboard PNG:
 
   1. Price trend over time per produce type
   2. Price comparison: Joburg Market vs Pretoria Market
   3. Price volatility (rolling standard deviation)
   4. Latest snapshot: average price by produce type (bar chart)
+  5. Today's price vs this month's average price (smooths out day-to-day
+     noise using the market's own month-to-date sales figures)
 
 Run:
   python fresh_produce_analysis.py
@@ -20,6 +22,7 @@ import re
 import sys
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -71,6 +74,16 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
         value_sold = df[value_col].apply(daily_figure)
         qty_sold = df[qty_col].apply(daily_figure)
         df["price"] = value_sold / qty_sold.replace(0, pd.NA)
+
+        # The scraper also splits out "<name> mtd" cumulative columns --
+        # derive a month-to-date average price the same way.
+        mtd_value_col, mtd_qty_col = f"{value_col} mtd", f"{qty_col} mtd"
+        if mtd_value_col in df.columns and mtd_qty_col in df.columns:
+            mtd_value = df[mtd_value_col].apply(daily_figure)
+            mtd_qty = df[mtd_qty_col].apply(daily_figure)
+            df["mtd_price"] = mtd_value / mtd_qty.replace(0, pd.NA)
+        else:
+            df["mtd_price"] = pd.NA
     else:
         # Fallback: look for an explicit price/average column.
         price_col = next(
@@ -90,6 +103,7 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
             .replace("", None)
             .astype(float)
         )
+        df["mtd_price"] = pd.NA
 
     # Bucket produce into the three categories we track.
     def bucket(name: str) -> str:
@@ -116,7 +130,11 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
 # --------------------------------------------------------------------------
 
 def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig = plt.figure(figsize=(14, 15))
+    gs = fig.add_gridspec(3, 2)
+    axes = np.array([[fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1])],
+                      [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]])
+    ax_mtd = fig.add_subplot(gs[2, :])
     fig.suptitle("SA Fresh Produce Price Dashboard — Tomatoes | Chillies | Peppers",
                  fontsize=15, fontweight="bold")
 
@@ -178,7 +196,27 @@ def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
     ax.set_xlabel("")
     ax.set_ylabel("Avg. Price")
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    # 5. Today's price vs this month's average -- smooths out day-to-day
+    # noise using the market's own month-to-date sales figures.
+    has_mtd = "mtd_price" in latest.columns and latest["mtd_price"].notna().any()
+    if has_mtd:
+        mtd_compare = latest.groupby("produce_category")[["price", "mtd_price"]].mean().reset_index()
+        mtd_compare = mtd_compare.melt(id_vars="produce_category",
+                                        value_vars=["price", "mtd_price"],
+                                        var_name="metric", value_name="value")
+        mtd_compare["metric"] = mtd_compare["metric"].map(
+            {"price": "Today", "mtd_price": "Month-to-Date Avg."})
+        sns.barplot(data=mtd_compare, x="produce_category", y="value", hue="metric", ax=ax_mtd)
+        ax_mtd.set_title(f"Today's Price vs Month-to-Date Average{title_suffix}")
+        ax_mtd.set_xlabel("")
+        ax_mtd.set_ylabel("Price")
+        ax_mtd.legend(title="")
+    else:
+        ax_mtd.text(0.5, 0.5, "No month-to-date figures in this data yet",
+                     ha="center", va="center")
+        ax_mtd.set_title("Today's Price vs Month-to-Date Average")
+
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.savefig(out_path, dpi=150)
     print(f"Dashboard saved to {out_path}")
 

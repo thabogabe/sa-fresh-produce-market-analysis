@@ -77,6 +77,23 @@ MARKETS = {
 MASTER_CSV = "produce_prices_master.csv"
 TODAY = date.today().isoformat()
 
+# Columns that come back as "<today> MTD: <month-to-date>", e.g.
+# "R4,527,993.00 MTD: R34,068,059.00" -- split into a same-named daily
+# column plus a "<name> mtd" cumulative column.
+MTD_COLUMN_KEYWORDS = ["value sold", "qty sold", "kg sold"]
+
+
+def _split_today_mtd(cell) -> tuple[float | None, float | None]:
+    """Splits a 'X MTD: Y'-style cell into (today, month_to_date) floats."""
+    text = str(cell)
+    today_part, _, mtd_part = text.partition("MTD")
+
+    def clean(part: str) -> float | None:
+        digits = re.sub(r"[^\d.\-]", "", part)
+        return float(digits) if digits not in ("", "-", ".") else None
+
+    return clean(today_part), clean(mtd_part)
+
 
 # --------------------------------------------------------------------------
 # Browser setup
@@ -170,6 +187,16 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
         except Exception as e:
             print(f"  Could not parse tables on {cfg['name']} page ({e}); see {snapshot_path}.")
             return rows_df, html
+
+        # Split any "<today> MTD: <month-to-date>" columns into a clean
+        # numeric daily column plus a "<name> mtd" cumulative column, so
+        # downstream analysis doesn't have to re-parse strings.
+        if not rows_df.empty:
+            mtd_cols = [c for c in rows_df.columns if any(k in c for k in MTD_COLUMN_KEYWORDS)]
+            for col in mtd_cols:
+                split = rows_df[col].apply(_split_today_mtd)
+                rows_df[col] = split.apply(lambda t: t[0])
+                rows_df[f"{col} mtd"] = split.apply(lambda t: t[1])
 
         rows_df["market"] = cfg["name"]
         rows_df["date_scraped"] = TODAY
