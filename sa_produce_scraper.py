@@ -238,8 +238,20 @@ def main():
     if os.path.exists(MASTER_CSV):
         master_df = pd.read_csv(MASTER_CSV)
         master_df = pd.concat([master_df, today_df], ignore_index=True, sort=False)
-        # Drop exact duplicate rows in case the scraper is re-run same day.
-        master_df = master_df.drop_duplicates()
+        # If the scraper runs more than once for the same day -- e.g. a
+        # manual run before the market has finished publishing, followed
+        # by the 14:10 scheduled run -- keep only the most recent scrape
+        # per commodity/market/date. A plain drop_duplicates() only catches
+        # byte-identical rows, so an earlier, possibly-incomplete run's
+        # prices would otherwise sit alongside the later, real ones
+        # instead of being overwritten by them.
+        name_col = next(
+            (c for c in master_df.columns if any(
+                k in c for k in ["produce", "commodity", "product", "description", "item"])),
+            None,
+        )
+        dedup_cols = [c for c in [name_col, "market", "date_scraped"] if c and c in master_df.columns]
+        master_df = master_df.drop_duplicates(subset=dedup_cols or None, keep="last")
     else:
         master_df = today_df
 
