@@ -123,8 +123,16 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
         "tomato", "chilli", "chili", "pepper", "onion", "garlic", "potato", "spinach", "bean",
         "ginger", "lettuce", "cabbage", "cucumber", "broccoli", "pumpkin", "carrot", "beetroot",
     ]
+    # Joburg Market reports some line items as an undifferentiated mix of
+    # otherwise-unrelated produce (e.g. corn, beans and snap peas lumped
+    # into one row) rather than as a single product. A price derived from
+    # that isn't attributable to anything a farmer actually grows or
+    # sells, and at the low volumes these catch-all rows move, the R/kg
+    # figure swings wildly (one day it was R1,024/kg) -- exclude them.
+    EXCLUDED_PRODUCTS = ["corn/beans/snap peas"]
     is_tracked = df["produce_name"].astype(str).str.lower().apply(
         lambda name: any(k in name for k in TRACKED_KEYWORDS)
+        and not any(x in name for x in EXCLUDED_PRODUCTS)
     )
     df = df[is_tracked]
     df["produce_category"] = df["produce_name"].astype(str).str.strip().str.title()
