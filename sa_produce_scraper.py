@@ -43,6 +43,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 TARGET_PRODUCE = [
     "tomato", "chilli", "chili", "pepper", "onion", "garlic", "potato", "spinach", "bean",
     "ginger", "lettuce", "cabbage", "cucumber", "broccoli", "pumpkin", "carrot", "beetroot",
+    "butternut",
 ]
 
 MARKETS = {

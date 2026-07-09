@@ -122,6 +122,7 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
     TRACKED_KEYWORDS = [
         "tomato", "chilli", "chili", "pepper", "onion", "garlic", "potato", "spinach", "bean",
         "ginger", "lettuce", "cabbage", "cucumber", "broccoli", "pumpkin", "carrot", "beetroot",
+        "butternut",
     ]
     # Joburg Market reports some line items as an undifferentiated mix of
     # otherwise-unrelated produce (e.g. corn, beans and snap peas lumped
