@@ -1,7 +1,22 @@
-date,market,rainfall_mm
-2026-07-08,Joburg Market,0.0
-2026-07-09,Joburg Market,0.0
-2026-07-10,Joburg Market,0.0
-2026-07-08,Pretoria Market,0.0
-2026-07-09,Pretoria Market,0.0
-2026-07-10,Pretoria Market,0.0
+date,region,rainfall_mm
+2026-07-08,Free State (Bethlehem),0.0
+2026-07-09,Free State (Bethlehem),0.0
+2026-07-10,Free State (Bethlehem),0.0
+2026-07-08,Gauteng (Johannesburg),0.0
+2026-07-09,Gauteng (Johannesburg),0.0
+2026-07-10,Gauteng (Johannesburg),0.0
+2026-07-08,Gauteng (Pretoria),0.0
+2026-07-09,Gauteng (Pretoria),0.0
+2026-07-10,Gauteng (Pretoria),0.0
+2026-07-08,KwaZulu-Natal (Pietermaritzburg),0.0
+2026-07-09,KwaZulu-Natal (Pietermaritzburg),0.4
+2026-07-10,KwaZulu-Natal (Pietermaritzburg),0.4
+2026-07-08,Limpopo (Tzaneen),0.0
+2026-07-09,Limpopo (Tzaneen),0.0
+2026-07-10,Limpopo (Tzaneen),0.0
+2026-07-08,Mpumalanga (Nelspruit),0.0
+2026-07-09,Mpumalanga (Nelspruit),0.0
+2026-07-10,Mpumalanga (Nelspruit),0.0
+2026-07-08,Western Cape (Ceres),0.0
+2026-07-09,Western Cape (Ceres),0.0
+2026-07-10,Western Cape (Ceres),0.0
