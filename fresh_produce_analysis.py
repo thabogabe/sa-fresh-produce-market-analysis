@@ -2,14 +2,16 @@
 fresh_produce_analysis.py
 --------------------------
 Reads produce_prices_master.csv (built by sa_produce_scraper.py) and
-generates a 5-panel dashboard PNG:
+generates a 6-panel dashboard PNG:
 
-  1. Price trend over time per produce type, with daily rainfall (from
-     rainfall_data.py) overlaid on a secondary axis if available
-  2. Price comparison: Joburg Market vs Pretoria Market
-  3. Price volatility (rolling standard deviation)
-  4. Latest snapshot: average price by produce type (bar chart)
-  5. Today's price vs this month's average price (smooths out day-to-day
+  1. Price trend over time per produce type
+  2. Price volatility (rolling standard deviation)
+  3. Daily rainfall per major growing region (from rainfall_data.py), if
+     that's been run -- its own panel, not overlaid on the price trend,
+     since regions can be moving in opposite seasonal directions
+  4. Price comparison: Joburg Market vs Pretoria Market
+  5. Latest snapshot: average price by produce type (bar chart)
+  6. Today's price vs this month's average price (smooths out day-to-day
      noise using the market's own month-to-date sales figures)
 
 Run:
@@ -148,13 +150,14 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
 
 
 def load_rainfall(path: str = RAINFALL_CSV) -> pd.DataFrame:
-    """Daily rainfall per market from rainfall_data.py, averaged across
-    markets into one series/day -- optional; returns empty if not built
-    yet (rainfall_data.py hasn't been run)."""
+    """Daily rainfall per growing region from rainfall_data.py -- optional,
+    returns empty if not built yet. Kept per-region rather than averaged:
+    the Western Cape's winter-rainfall climate runs opposite the rest of
+    the country's summer-rainfall pattern, so blending them together would
+    wash out real signal, not smooth noise."""
     if not os.path.exists(path):
-        return pd.DataFrame(columns=["date", "rainfall_mm"])
-    rain = pd.read_csv(path, parse_dates=["date"])
-    return rain.groupby("date", as_index=False)["rainfall_mm"].mean()
+        return pd.DataFrame(columns=["date", "region", "rainfall_mm"])
+    return pd.read_csv(path, parse_dates=["date"])
 
 
 # --------------------------------------------------------------------------
@@ -204,15 +207,22 @@ def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_
     n_categories = max(df["produce_category"].nunique(), 1)
     bar_h = max(4.0, n_categories * 0.32)
     top_h = max(4.5, n_categories * 0.09)
-    fig_h = top_h + 1.9 + bar_h * 3
+    has_rainfall = rainfall is not None and not rainfall.empty
+    rain_h = 3.5 if has_rainfall else 0
+    fig_h = top_h + rain_h + 1.9 + bar_h * 3
     fig = plt.figure(figsize=(15, fig_h))
-    gs = fig.add_gridspec(4, 2, height_ratios=[top_h, bar_h, bar_h, bar_h],
+    n_rows = 5 if has_rainfall else 4
+    height_ratios = [top_h, rain_h, bar_h, bar_h, bar_h] if has_rainfall else [top_h, bar_h, bar_h, bar_h]
+    gs = fig.add_gridspec(n_rows, 2, height_ratios=height_ratios,
                            hspace=0.4, wspace=0.25, top=1 - 1.4 / fig_h, bottom=0.01)
     ax_trend = fig.add_subplot(gs[0, 0])
     ax_vol = fig.add_subplot(gs[0, 1])
-    ax_market = fig.add_subplot(gs[1, :])
-    ax_snapshot = fig.add_subplot(gs[2, :])
-    ax_mtd = fig.add_subplot(gs[3, :])
+    next_row = 1
+    ax_rain = fig.add_subplot(gs[next_row, :]) if has_rainfall else None
+    next_row += 1 if has_rainfall else 0
+    ax_market = fig.add_subplot(gs[next_row, :])
+    ax_snapshot = fig.add_subplot(gs[next_row + 1, :])
+    ax_mtd = fig.add_subplot(gs[next_row + 2, :])
 
     fig.suptitle(f"SA Fresh Produce Price Dashboard ({price_unit})",
                  fontsize=16, fontweight="bold")
@@ -225,32 +235,10 @@ def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_
     if has_dates:
         ax_trend.set_prop_cycle(color=category_colors)
         trend = df.groupby(["date_scraped", "produce_category"])["price"].mean().reset_index()
-
-        # Rainfall (from rainfall_data.py) as bars behind the price lines,
-        # on its own mm scale, so a rain day lining up with a price move
-        # is visible at a glance. zorder/patch tricks keep the bars
-        # visually behind the lines regardless of plotting order.
-        if rainfall is not None and not rainfall.empty:
-            ax_rain = ax_trend.twinx()
-            rain_in_range = rainfall[rainfall["date"].isin(trend["date_scraped"].unique())]
-            ax_rain.bar(rain_in_range["date"], rain_in_range["rainfall_mm"], width=0.6,
-                        color="tab:blue", alpha=0.25, label="Rainfall (mm)", zorder=1)
-            ax_rain.set_ylabel("Rainfall (mm)", color="tab:blue")
-            ax_rain.tick_params(axis="y", labelcolor="tab:blue")
-            # On dry-season days with literally zero rainfall everywhere,
-            # matplotlib autoscales to a tiny sub-1mm range that reads as
-            # broken rather than "no rain" -- give it a sane floor.
-            max_rain = rain_in_range["rainfall_mm"].max()
-            ax_rain.set_ylim(0, max(max_rain * 1.15, 5))
-            ax_rain.grid(False)
-            ax_rain.set_zorder(ax_trend.get_zorder() - 1)
-            ax_trend.patch.set_visible(False)
-
         for category, sub in trend.groupby("produce_category"):
             ax_trend.plot(sub["date_scraped"], sub["price"], marker="o", markersize=3,
                           linewidth=1, label=category, zorder=3)
-        ax_trend.set_title("Price Trend Over Time (rainfall overlay)"
-                            if rainfall is not None and not rainfall.empty else "Price Trend Over Time")
+        ax_trend.set_title("Price Trend Over Time")
         ax_trend.set_xlabel("Date")
         ax_trend.set_ylabel(f"Avg. Price ({price_unit}, log scale)")
         ax_trend.set_yscale("log")
@@ -289,6 +277,26 @@ def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_
                     ha="center", va="center")
         ax_vol.set_title("Price Volatility")
 
+    # 3. Regional rainfall -- its own panel rather than overlaid on the
+    # price trend: the Western Cape's winter-rainfall climate runs
+    # opposite the rest of the country's summer-rainfall pattern, so
+    # cramming both onto one axis would obscure real signal, not reveal
+    # it. Not commodity-specific (see rainfall_data.py) -- context, not a
+    # precise "this crop's weather" figure.
+    if has_rainfall:
+        region_colors = sns.color_palette("tab10", n_colors=rainfall["region"].nunique())
+        ax_rain.set_prop_cycle(color=region_colors)
+        for region, sub in rainfall.groupby("region"):
+            ax_rain.plot(sub["date"], sub["rainfall_mm"], marker="o", markersize=3,
+                         linewidth=1.2, label=region)
+        ax_rain.set_title("Regional Rainfall (major growing regions)")
+        ax_rain.set_xlabel("Date")
+        ax_rain.set_ylabel("Rainfall (mm)")
+        ax_rain.set_ylim(bottom=0)
+        _format_date_axis(ax_rain, rainfall["date"])
+        ax_rain.tick_params(axis="x", rotation=45)
+        ax_rain.legend(loc="upper left", bbox_to_anchor=(1.005, 1), fontsize=7, borderaxespad=0)
+
     latest_date = df["date_scraped"].max() if has_dates else None
     latest = df[df["date_scraped"] == latest_date] if has_dates else df
     title_suffix = f" ({latest_date.strftime('%d %b %Y')})" if has_dates else ""
@@ -299,7 +307,7 @@ def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_
     order = (latest.groupby("produce_category")["price"].mean()
              .sort_values(ascending=False).index.tolist())
 
-    # 3. Market comparison (Joburg vs Pretoria)
+    # 4. Market comparison (Joburg vs Pretoria)
     market_compare = df.groupby(["market", "produce_category"])["price"].mean().reset_index()
     sns.barplot(data=market_compare, y="produce_category", x="price", hue="market",
                 order=order, ax=ax_market)
@@ -309,7 +317,7 @@ def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_
     ax_market.set_xscale("log")
     _label_bars(ax_market)
 
-    # 4. Latest snapshot — average price by produce type
+    # 5. Latest snapshot — average price by produce type
     snapshot = latest.groupby("produce_category")["price"].mean().reindex(order).reset_index()
     sns.barplot(data=snapshot, y="produce_category", x="price", hue="produce_category",
                 order=order, palette="viridis", legend=False, ax=ax_snapshot)
@@ -319,7 +327,7 @@ def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_
     ax_snapshot.set_xscale("log")
     _label_bars(ax_snapshot)
 
-    # 5. Today's price vs this month's average -- smooths out day-to-day
+    # 6. Today's price vs this month's average -- smooths out day-to-day
     # noise using the market's own month-to-date sales figures.
     has_mtd = "mtd_price" in latest.columns and latest["mtd_price"].notna().any()
     if has_mtd:
