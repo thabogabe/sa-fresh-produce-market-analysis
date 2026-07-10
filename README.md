@@ -15,8 +15,10 @@ against the month-to-date average.
 | File | Purpose |
 |---|---|
 | `sa_produce_scraper.py` | Selenium scraper — fetches both markets |
+| `rainfall_data.py` | Fetches daily rainfall for the market cities (Open-Meteo) |
 | `fresh_produce_analysis.py` | Analysis & dashboard — reads the master CSV |
 | `produce_prices_master.csv` | Running historical dataset (auto-built by the scraper) |
+| `rainfall_master.csv` | Running daily rainfall dataset (auto-built by `rainfall_data.py`) |
 
 ## Setup
 
@@ -46,11 +48,22 @@ python fresh_produce_analysis.py
 ```
 
 This produces `produce_dashboard.png` with:
-1. Price trend over time per produce type
+1. Price trend over time per produce type, with daily rainfall overlaid on a secondary axis
 2. Joburg Market vs Pretoria Market price comparison
 3. Price volatility (rolling standard deviation)
 4. Latest snapshot — average price by produce type
 5. Today's price vs this month's average price (month-to-date)
+
+Run `python rainfall_data.py` to fetch/update rainfall data before generating the dashboard —
+it backfills from the earliest date in the price data, so rainfall history lines up with
+however much price history you already have. Uses
+[Open-Meteo's free Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api)
+(no key needed) rather than the SA Weather Service, which has no free public API for
+historical rainfall — its climate database is accessible only via a paid/manual request form.
+
+**Caveat:** rainfall is fetched for Johannesburg/Pretoria themselves, as a Gauteng Highveld
+regional proxy — produce sold *at* a market isn't necessarily *grown* there, so this doesn't
+reflect the actual rainfall at any specific farm's location.
 
 Both scripts auto-commit and push their output (`produce_prices_master.csv`,
 `produce_dashboard.png`) to this repo after each run, via `git_autocommit.py`. This is
@@ -78,9 +91,9 @@ Joburg Market updates prices between 12:00 and 13:00 on weekdays. This project r
 new prices is harmless since `produce_prices_master.csv` drops exact duplicate rows.
 
 **Windows (Task Scheduler):** a task named `Fresh Produce Scraper` is registered to run
-`run_scraper.bat` daily at 14:10, which `cd`s into the project folder, runs
-`venv\Scripts\python.exe sa_produce_scraper.py`, and appends output to `scraper_log.txt`
-(gitignored). To recreate it on another machine:
+`run_scraper.bat` daily at 14:10, which `cd`s into the project folder and runs the scraper,
+the rainfall fetch, and the dashboard rebuild in sequence, appending output to
+`scraper_log.txt` (gitignored). To recreate it on another machine:
 
 ```powershell
 $action = New-ScheduledTaskAction -Execute "C:\path\to\project\run_scraper.bat" -WorkingDirectory "C:\path\to\project"
@@ -96,7 +109,7 @@ Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigge
 ## Roadmap
 
 - [ ] Build 3+ months of daily data for meaningful seasonal analysis
-- [ ] Overlay SA Weather Service rainfall/drought data against price spikes
+- [x] Overlay rainfall/drought data against price spikes (Open-Meteo, not SA Weather Service — see Usage)
 - [ ] Correlate EskomSePush load-shedding stage history against price jumps
 - [ ] Export to Power BI for an interactive dashboard
 - [x] Expand `TARGET_PRODUCE` to onions, garlic, potatoes, spinach

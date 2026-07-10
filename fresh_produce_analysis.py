@@ -4,7 +4,8 @@ fresh_produce_analysis.py
 Reads produce_prices_master.csv (built by sa_produce_scraper.py) and
 generates a 5-panel dashboard PNG:
 
-  1. Price trend over time per produce type
+  1. Price trend over time per produce type, with daily rainfall (from
+     rainfall_data.py) overlaid on a secondary axis if available
   2. Price comparison: Joburg Market vs Pretoria Market
   3. Price volatility (rolling standard deviation)
   4. Latest snapshot: average price by produce type (bar chart)
@@ -18,6 +19,7 @@ Output:
   produce_dashboard.png
 """
 
+import os
 import re
 import sys
 
@@ -29,6 +31,7 @@ import seaborn as sns
 from git_autocommit import commit_and_push
 
 MASTER_CSV = "produce_prices_master.csv"
+RAINFALL_CSV = "rainfall_master.csv"
 OUTPUT_IMAGE = "produce_dashboard.png"
 
 sns.set_style("whitegrid")
@@ -144,6 +147,16 @@ def load_data(path: str = MASTER_CSV) -> pd.DataFrame:
     return df.dropna(subset=["price"])
 
 
+def load_rainfall(path: str = RAINFALL_CSV) -> pd.DataFrame:
+    """Daily rainfall per market from rainfall_data.py, averaged across
+    markets into one series/day -- optional; returns empty if not built
+    yet (rainfall_data.py hasn't been run)."""
+    if not os.path.exists(path):
+        return pd.DataFrame(columns=["date", "rainfall_mm"])
+    rain = pd.read_csv(path, parse_dates=["date"])
+    return rain.groupby("date", as_index=False)["rainfall_mm"].mean()
+
+
 # --------------------------------------------------------------------------
 # Dashboard
 # --------------------------------------------------------------------------
@@ -174,7 +187,7 @@ def _label_bars(ax, fmt: str = "%.1f") -> None:
         ax.bar_label(container, fmt=fmt, fontsize=7, padding=3)
 
 
-def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
+def build_dashboard(df: pd.DataFrame, rainfall: pd.DataFrame | None = None, out_path: str = OUTPUT_IMAGE) -> None:
     # Prices are Rand-per-kg wherever the source data allows it (see
     # load_data) -- surface that unit everywhere so it's never ambiguous
     # what quantity/packaging a price refers to.
@@ -212,10 +225,32 @@ def build_dashboard(df: pd.DataFrame, out_path: str = OUTPUT_IMAGE) -> None:
     if has_dates:
         ax_trend.set_prop_cycle(color=category_colors)
         trend = df.groupby(["date_scraped", "produce_category"])["price"].mean().reset_index()
+
+        # Rainfall (from rainfall_data.py) as bars behind the price lines,
+        # on its own mm scale, so a rain day lining up with a price move
+        # is visible at a glance. zorder/patch tricks keep the bars
+        # visually behind the lines regardless of plotting order.
+        if rainfall is not None and not rainfall.empty:
+            ax_rain = ax_trend.twinx()
+            rain_in_range = rainfall[rainfall["date"].isin(trend["date_scraped"].unique())]
+            ax_rain.bar(rain_in_range["date"], rain_in_range["rainfall_mm"], width=0.6,
+                        color="tab:blue", alpha=0.25, label="Rainfall (mm)", zorder=1)
+            ax_rain.set_ylabel("Rainfall (mm)", color="tab:blue")
+            ax_rain.tick_params(axis="y", labelcolor="tab:blue")
+            # On dry-season days with literally zero rainfall everywhere,
+            # matplotlib autoscales to a tiny sub-1mm range that reads as
+            # broken rather than "no rain" -- give it a sane floor.
+            max_rain = rain_in_range["rainfall_mm"].max()
+            ax_rain.set_ylim(0, max(max_rain * 1.15, 5))
+            ax_rain.grid(False)
+            ax_rain.set_zorder(ax_trend.get_zorder() - 1)
+            ax_trend.patch.set_visible(False)
+
         for category, sub in trend.groupby("produce_category"):
             ax_trend.plot(sub["date_scraped"], sub["price"], marker="o", markersize=3,
-                          linewidth=1, label=category)
-        ax_trend.set_title("Price Trend Over Time")
+                          linewidth=1, label=category, zorder=3)
+        ax_trend.set_title("Price Trend Over Time (rainfall overlay)"
+                            if rainfall is not None and not rainfall.empty else "Price Trend Over Time")
         ax_trend.set_xlabel("Date")
         ax_trend.set_ylabel(f"Avg. Price ({price_unit}, log scale)")
         ax_trend.set_yscale("log")
@@ -320,7 +355,8 @@ def main():
     if df.empty:
         print("No matching produce rows found in the master CSV.")
         sys.exit(1)
-    build_dashboard(df)
+    rainfall = load_rainfall()
+    build_dashboard(df, rainfall)
 
 
 if __name__ == "__main__":
