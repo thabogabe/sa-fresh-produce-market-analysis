@@ -70,9 +70,8 @@ historical rainfall — its climate database is accessible only via a paid/manua
   winter-rainfall climate runs opposite the rest of the country's summer-rainfall pattern.
 - Still not commodity-specific: the price data doesn't say which region a given batch of
   produce actually came from, so this is regional context, not a precise "this crop's
-  rainfall" figure. Pretoria's (currently unbuilt) sales drill-down does track a `PROVINCE`
-  per sale — see the comment above `MARKETS["pretoria"]` in `sa_produce_scraper.py` — which
-  would be the real fix if that ever gets built out.
+  rainfall" figure. Pretoria's sales drill-down did track a `PROVINCE` per sale, which would
+  have been the real fix — but that data source turned out to be a dead end (see below).
 
 Both scripts auto-commit and push their output (`produce_prices_master.csv`,
 `produce_dashboard.png`) to this repo after each run, via `git_autocommit.py`. This is
@@ -85,13 +84,16 @@ Market sites occasionally change their HTML structure. Each scraper run saves
 `page_source_<market>.html` — open it in a browser to find where the price table moved, then
 update the CSS selectors in `sa_produce_scraper.py` marked `UPDATE ME`.
 
-**Known limitation — Pretoria Market:** unlike Joburg's single price table, Tshwane's data
-lives behind a 3-level ASP.NET search/drill-down (product name → product match → grade/
-container/mass SKU variant → per-SKU sales stats). The scraper currently only navigates to
-the correct page (fixing an SSL interstitial and an iframe redirect that made it look like
-there was no data at all) and saves the page source; it doesn't walk the full drill-down yet.
-See the comment above `MARKETS["pretoria"]` in `sa_produce_scraper.py` for the mapped-out
-approach if you want to finish it.
+**Known limitation — Pretoria Market (investigated and abandoned):** Tshwane's data lives
+behind a 3-level ASP.NET search/drill-down (product name → product match → grade/container/
+mass SKU variant → per-SKU sales stats). The drill-down mechanics were fully solved — see the
+comment above `MARKETS["pretoria"]` in `sa_produce_scraper.py` for exactly how — but after
+scanning 177 SKU/grade combinations across tomatoes, onions and potatoes (staples that should
+sell daily) with a correct "does this page have data" detector, every single one was empty.
+The site's own Historic Data report throws a JS alert ("No Results Found... not available")
+for a date over a year in the past, too. This isn't a scraping bug — the system has no real
+transaction data behind it for any date tried, live or historical. Not pursuing this data
+source further.
 
 ## Automating daily runs
 

@@ -62,21 +62,26 @@ MARKETS = {
         # navigate straight to the source instead.
         "url": "https://tfpm.tshwane.gov.za/ViewDailyStats.aspx",
         "table_selector": "table",
-        # KNOWN LIMITATION: unlike Joburg, this page has no single price
-        # table -- it's a 3-level ASP.NET drill-down (search a product name
-        # -> pick a product match -> pick a grade/container/mass SKU variant
-        # -> that SKU's page has the actual sales/price stats, often empty
-        # for a given day). Reaching parity with the Joburg scraper means
-        # searching each TARGET_PRODUCE term, walking every matched
-        # product's SKU list via
-        #   driver.execute_script("__doPostBack('ctl00$ContentPlaceHolder1$GridView1','Select$<i>')")
-        # then each SKU via
-        #   driver.execute_script("__doPostBack('ctl00$ContentPlaceHolder1$GridView2','Select$<j>')")
-        # (driver.back() reliably returns to the prior grid between clicks,
-        # so this doesn't require restarting the search each time), then
-        # parsing the resulting detail table for VALUE OF SALES / QUANTITY
-        # SOLD / AVERAGE PRICE and aggregating per product. Not implemented:
-        # this scraper currently only saves the page source for debugging.
+        # ABANDONED (investigated 2026-07-10): unlike Joburg, this page has
+        # no single price table -- it's a 3-level ASP.NET drill-down
+        # (search a product name -> pick a product match -> pick a grade/
+        # container/mass SKU variant -> that SKU's page has the actual
+        # sales/price stats). The drill-down mechanics were fully solved --
+        # driver.execute_script("__doPostBack('ctl00$ContentPlaceHolder1$GridView1','Select$<i>')"),
+        # then GridView2 for the SKU list, driver.back() between clicks to
+        # avoid re-running the search -- and the detail page's real data
+        # row lives in table id="ContentPlaceHolder1_Table4" as label/value
+        # pairs (VALUE OF SALES, QUANTITY SOLD, PROVINCE, AVERAGE PRICE,
+        # etc; empty second cell = no sale for that SKU that day).
+        #
+        # But after scanning 177 SKU/grade combinations across tomatoes,
+        # onions and potatoes (high-volume staples, should sell daily) with
+        # that correct detector, every single one was empty. The site's own
+        # "Historic Data" report also throws a JS alert -- "No Results
+        # Found. This product is not available at the moment !!!!" -- for
+        # June 2025, over a year in the past. This isn't a scraping problem;
+        # the system has no real transaction data behind it for any date
+        # tried, live or historical. Not pursuing this data source further.
     },
 }
 
