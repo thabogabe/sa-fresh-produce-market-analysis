@@ -23,6 +23,7 @@ where the price table lives, and update the CSS selectors marked
 import io
 import os
 import re
+import sys
 import time
 from datetime import date
 
@@ -139,7 +140,15 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
 
     try:
         print(f"Scraping {cfg['name']}...")
-        driver.get(cfg["url"])
+        try:
+            driver.get(cfg["url"])
+        except Exception as e:
+            # Network hiccups (e.g. no internet at the moment the scheduled
+            # task fires) used to raise all the way out of this function,
+            # crashing the whole run before the *other* market -- or the
+            # dashboard rebuild -- ever got a chance to happen.
+            print(f"  Could not reach {cfg['name']} ({e}).")
+            return rows_df, html
 
         # Give the page (and any JS-rendered tables) time to load.
         try:
@@ -231,7 +240,10 @@ def main():
 
     if not all_rows:
         print("No data scraped today -- check the page_source_*.html snapshots.")
-        return
+        # Nonzero exit so Task Scheduler/run_scraper.bat actually shows a
+        # failure instead of silently reporting success on a day nothing
+        # was fetched (e.g. no internet at the scheduled run time).
+        sys.exit(1)
 
     today_df = pd.concat(all_rows, ignore_index=True, sort=False)
 
