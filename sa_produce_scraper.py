@@ -233,6 +233,14 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
 # --------------------------------------------------------------------------
 
 def main():
+    # Joburg Market doesn't trade on Sundays -- the Task Scheduler trigger
+    # already skips Sundays, but this guards manual runs and StartWhenAvailable
+    # catch-up runs too, so we never stamp Friday/Saturday's leftover page
+    # content with a bogus Sunday date.
+    if date.today().weekday() == 6:  # Monday=0 .. Sunday=6
+        print("Market is closed on Sundays -- skipping.")
+        return
+
     all_rows = []
 
     for market_key in MARKETS:

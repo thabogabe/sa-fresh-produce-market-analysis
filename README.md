@@ -97,24 +97,27 @@ source further.
 
 ## Automating daily runs
 
-Joburg Market updates prices between 12:00 and 13:00 on weekdays. This project runs daily
-(including weekends) at 14:10 to leave room for update delays — re-scraping on a day with no
-new prices is harmless since `produce_prices_master.csv` drops exact duplicate rows.
+Joburg Market updates prices between 12:00 and 13:00 on weekdays, and doesn't trade on
+Sundays at all. This project runs Monday–Saturday at 14:10 to leave room for update delays —
+re-scraping on a day with no new prices is harmless since `produce_prices_master.csv` drops
+exact duplicate rows. `sa_produce_scraper.py` also refuses to run on a Sunday even if
+triggered manually (or by a `StartWhenAvailable` catch-up run), so Friday/Saturday's leftover
+page content never gets stamped with a bogus Sunday date.
 
 **Windows (Task Scheduler):** a task named `Fresh Produce Scraper` is registered to run
-`run_scraper.bat` daily at 14:10, which `cd`s into the project folder and runs the scraper,
-the rainfall fetch, and the dashboard rebuild in sequence, appending output to
-`scraper_log.txt` (gitignored). To recreate it on another machine:
+`run_scraper.bat` at 14:10, Monday through Saturday, which `cd`s into the project folder and
+runs the scraper, the rainfall fetch, and the dashboard rebuild in sequence, appending output
+to `scraper_log.txt` (gitignored). To recreate it on another machine:
 
 ```powershell
 $action = New-ScheduledTaskAction -Execute "C:\path\to\project\run_scraper.bat" -WorkingDirectory "C:\path\to\project"
-$trigger = New-ScheduledTaskTrigger -Daily -At 14:10
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday,Saturday -At 14:10
 Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigger $trigger
 ```
 
 **Mac/Linux (cron):**
 ```
-10 14 * * * /path/to/venv/bin/python /path/to/sa_produce_scraper.py >> scraper_log.txt 2>&1
+10 14 * * 1-6 /path/to/venv/bin/python /path/to/sa_produce_scraper.py >> scraper_log.txt 2>&1
 ```
 
 ## Roadmap
