@@ -6,6 +6,7 @@ date,region,rainfall_mm
 2026-07-12,Free State (Bethlehem),0.0
 2026-07-13,Free State (Bethlehem),0.0
 2026-07-14,Free State (Bethlehem),0.0
+2026-07-15,Free State (Bethlehem),0.0
 2026-07-08,Gauteng (Johannesburg),0.0
 2026-07-09,Gauteng (Johannesburg),0.0
 2026-07-10,Gauteng (Johannesburg),0.0
@@ -13,6 +14,7 @@ date,region,rainfall_mm
 2026-07-12,Gauteng (Johannesburg),0.0
 2026-07-13,Gauteng (Johannesburg),0.6
 2026-07-14,Gauteng (Johannesburg),0.1
+2026-07-15,Gauteng (Johannesburg),0.0
 2026-07-08,Gauteng (Pretoria),0.0
 2026-07-09,Gauteng (Pretoria),0.0
 2026-07-10,Gauteng (Pretoria),0.0
@@ -20,6 +22,7 @@ date,region,rainfall_mm
 2026-07-12,Gauteng (Pretoria),0.0
 2026-07-13,Gauteng (Pretoria),0.0
 2026-07-14,Gauteng (Pretoria),0.0
+2026-07-15,Gauteng (Pretoria),0.0
 2026-07-08,KwaZulu-Natal (Pietermaritzburg),0.0
 2026-07-09,KwaZulu-Natal (Pietermaritzburg),0.4
 2026-07-10,KwaZulu-Natal (Pietermaritzburg),0.4
@@ -27,6 +30,7 @@ date,region,rainfall_mm
 2026-07-12,KwaZulu-Natal (Pietermaritzburg),0.9
 2026-07-13,KwaZulu-Natal (Pietermaritzburg),0.3
 2026-07-14,KwaZulu-Natal (Pietermaritzburg),0.0
+2026-07-15,KwaZulu-Natal (Pietermaritzburg),0.0
 2026-07-08,Limpopo (Tzaneen),0.0
 2026-07-09,Limpopo (Tzaneen),0.0
 2026-07-10,Limpopo (Tzaneen),0.0
@@ -34,6 +38,7 @@ date,region,rainfall_mm
 2026-07-12,Limpopo (Tzaneen),0.0
 2026-07-13,Limpopo (Tzaneen),0.1
 2026-07-14,Limpopo (Tzaneen),0.0
+2026-07-15,Limpopo (Tzaneen),0.0
 2026-07-08,Mpumalanga (Nelspruit),0.0
 2026-07-09,Mpumalanga (Nelspruit),0.0
 2026-07-10,Mpumalanga (Nelspruit),0.0
@@ -41,6 +46,7 @@ date,region,rainfall_mm
 2026-07-12,Mpumalanga (Nelspruit),0.5
 2026-07-13,Mpumalanga (Nelspruit),1.4
 2026-07-14,Mpumalanga (Nelspruit),0.0
+2026-07-15,Mpumalanga (Nelspruit),0.0
 2026-07-08,Western Cape (Ceres),0.0
 2026-07-09,Western Cape (Ceres),0.0
 2026-07-10,Western Cape (Ceres),0.0
@@ -48,3 +54,4 @@ date,region,rainfall_mm
 2026-07-12,Western Cape (Ceres),0.0
 2026-07-13,Western Cape (Ceres),0.0
 2026-07-14,Western Cape (Ceres),0.0
+2026-07-15,Western Cape (Ceres),0.0
