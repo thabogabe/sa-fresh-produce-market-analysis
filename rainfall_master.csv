@@ -15,6 +15,7 @@ date,region,rainfall_mm
 2026-07-21,Free State (Bethlehem),0.0
 2026-07-22,Free State (Bethlehem),0.0
 2026-07-23,Free State (Bethlehem),0.7
+2026-07-24,Free State (Bethlehem),0.0
 2026-07-08,Gauteng (Johannesburg),0.0
 2026-07-09,Gauteng (Johannesburg),0.0
 2026-07-10,Gauteng (Johannesburg),0.0
@@ -31,6 +32,7 @@ date,region,rainfall_mm
 2026-07-21,Gauteng (Johannesburg),0.0
 2026-07-22,Gauteng (Johannesburg),0.0
 2026-07-23,Gauteng (Johannesburg),0.0
+2026-07-24,Gauteng (Johannesburg),0.0
 2026-07-08,Gauteng (Pretoria),0.0
 2026-07-09,Gauteng (Pretoria),0.0
 2026-07-10,Gauteng (Pretoria),0.0
@@ -47,6 +49,7 @@ date,region,rainfall_mm
 2026-07-21,Gauteng (Pretoria),0.0
 2026-07-22,Gauteng (Pretoria),0.0
 2026-07-23,Gauteng (Pretoria),0.0
+2026-07-24,Gauteng (Pretoria),0.0
 2026-07-08,KwaZulu-Natal (Pietermaritzburg),0.0
 2026-07-09,KwaZulu-Natal (Pietermaritzburg),0.4
 2026-07-10,KwaZulu-Natal (Pietermaritzburg),0.4
@@ -79,6 +82,7 @@ date,region,rainfall_mm
 2026-07-21,Limpopo (Tzaneen),0.0
 2026-07-22,Limpopo (Tzaneen),0.0
 2026-07-23,Limpopo (Tzaneen),0.0
+2026-07-24,Limpopo (Tzaneen),0.0
 2026-07-08,Mpumalanga (Nelspruit),0.0
 2026-07-09,Mpumalanga (Nelspruit),0.0
 2026-07-10,Mpumalanga (Nelspruit),0.0
@@ -95,6 +99,7 @@ date,region,rainfall_mm
 2026-07-21,Mpumalanga (Nelspruit),0.0
 2026-07-22,Mpumalanga (Nelspruit),0.0
 2026-07-23,Mpumalanga (Nelspruit),0.0
+2026-07-24,Mpumalanga (Nelspruit),0.0
 2026-07-08,Western Cape (Ceres),0.0
 2026-07-09,Western Cape (Ceres),0.0
 2026-07-10,Western Cape (Ceres),0.0
@@ -111,3 +116,4 @@ date,region,rainfall_mm
 2026-07-21,Western Cape (Ceres),0.0
 2026-07-22,Western Cape (Ceres),0.1
 2026-07-23,Western Cape (Ceres),6.7
+2026-07-24,Western Cape (Ceres),0.1
