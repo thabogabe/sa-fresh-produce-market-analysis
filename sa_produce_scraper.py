@@ -25,7 +25,7 @@ import os
 import re
 import sys
 import time
-from datetime import date
+from datetime import date, datetime
 
 import pandas as pd
 from selenium import webdriver
@@ -92,6 +92,32 @@ TODAY = date.today().isoformat()
 # "R4,527,993.00 MTD: R34,068,059.00" -- split into a same-named daily
 # column plus a "<name> mtd" cumulative column.
 MTD_COLUMN_KEYWORDS = ["value sold", "qty sold", "kg sold"]
+
+
+def _extract_page_date(html: str) -> str | None:
+    """
+    Joburg Market's page states which trading day its prices are actually
+    for, e.g. "This information is for 25 July 2026" -- it doesn't
+    necessarily update the moment a new day starts (their own site says
+    "updated between 12 noon and 1pm every week day"), so it can still be
+    showing Friday's or Saturday's prices well into the next calendar day
+    or over a weekend. Stamping rows with date.today() regardless of what
+    the page says caused stale/carried-over prices to get mislabeled with
+    the wrong date instead of correctly landing on the day they're for.
+    Returns an ISO date string, or None if the page doesn't expose one
+    (e.g. Pretoria) -- callers should fall back to today's date then.
+    """
+    # The date sits inside a <b> tag right after the phrase (e.g. "This
+    # information is for <b>25 July 2026</b>"), so strip tags first rather
+    # than requiring plain adjacent text.
+    text = re.sub(r"<[^>]+>", " ", html)
+    m = re.search(r"This information is for\s+(\d{1,2} \w+ \d{4})", text)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%d %B %Y").date().isoformat()
+    except ValueError:
+        return None
 
 
 def _split_today_mtd(cell) -> tuple[float | None, float | None]:
@@ -217,8 +243,12 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
                 rows_df[col] = split.apply(lambda t: t[0])
                 rows_df[f"{col} mtd"] = split.apply(lambda t: t[1])
 
+        page_date = _extract_page_date(html) or TODAY
+        if page_date != TODAY:
+            print(f"  Page states prices are for {page_date}, not today ({TODAY}) -- using {page_date}.")
+
         rows_df["market"] = cfg["name"]
-        rows_df["date_scraped"] = TODAY
+        rows_df["date_scraped"] = page_date
 
         print(f"  Found {len(rows_df)} matching rows at {cfg['name']}.")
 
@@ -233,20 +263,20 @@ def scrape_market(market_key: str, headless: bool = True) -> tuple[pd.DataFrame,
 # --------------------------------------------------------------------------
 
 def main():
-    # Joburg Market doesn't trade on Sundays -- the Task Scheduler trigger
-    # already skips Sundays, but this guards manual runs and StartWhenAvailable
-    # catch-up runs too, so we never stamp Friday/Saturday's leftover page
-    # content with a bogus Sunday date.
-    if date.today().weekday() == 6:  # Monday=0 .. Sunday=6
-        print("Market is closed on Sundays -- skipping.")
-        return
-
+    # No hard Sunday skip: the market doesn't trade weekends, but its page
+    # doesn't go blank then -- it just keeps showing the last trading day's
+    # prices (their own site says "updated between 12 noon and 1pm every
+    # week day"). Since scrape_market() now reads the actual date the page
+    # says its prices are for, running on a Sunday correctly captures
+    # Saturday's prices dated as Saturday, instead of either skipping them
+    # or mislabeling them with today's date.
     all_rows = []
 
     for market_key in MARKETS:
         rows, _html = scrape_market(market_key, headless=True)
         if not rows.empty:
-            out_path = f"prices_{market_key}_{TODAY}.csv"
+            row_date = rows["date_scraped"].iloc[0]
+            out_path = f"prices_{market_key}_{row_date}.csv"
             rows.to_csv(out_path, index=False)
             print(f"  Saved {out_path}")
             all_rows.append(rows)
@@ -283,7 +313,9 @@ def main():
     master_df.to_csv(MASTER_CSV, index=False)
     print(f"Master CSV updated: {len(master_df)} total records")
 
-    commit_and_push([MASTER_CSV], f"Add {TODAY} price data")
+    scraped_dates = sorted(today_df["date_scraped"].unique())
+    date_label = scraped_dates[0] if len(scraped_dates) == 1 else f"{scraped_dates[0]} to {scraped_dates[-1]}"
+    commit_and_push([MASTER_CSV], f"Add {date_label} price data")
 
 
 if __name__ == "__main__":
