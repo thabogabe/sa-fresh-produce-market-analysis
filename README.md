@@ -98,21 +98,25 @@ source further.
 ## Automating daily runs
 
 Joburg Market updates prices between 12:00 and 13:00 on weekdays, and doesn't trade on
-Sundays at all. This project runs Monday–Saturday at 14:10 to leave room for update delays —
-re-scraping on a day with no new prices is harmless since `produce_prices_master.csv` drops
-exact duplicate rows. `sa_produce_scraper.py` also refuses to run on a Sunday even if
-triggered manually (or by a `StartWhenAvailable` catch-up run), so Friday/Saturday's leftover
-page content never gets stamped with a bogus Sunday date.
+Sundays at all — but its page doesn't go blank on off-days, it just keeps showing the last
+trading day's prices. `sa_produce_scraper.py` reads the date the page itself says its prices
+are for (see `_extract_page_date`) rather than assuming `date.today()`, so there's no hard
+Sunday skip: running on a Sunday correctly captures Saturday's carried-over prices dated as
+Saturday. Re-scraping on a day with no new prices is harmless either way, since
+`produce_prices_master.csv` keeps only the latest scrape per commodity/market/date.
 
 **Windows (Task Scheduler):** a task named `Fresh Produce Scraper` is registered to run
 `run_scraper.bat` at 14:10, Monday through Saturday, which `cd`s into the project folder and
 runs the scraper, the rainfall fetch, and the dashboard rebuild in sequence, appending output
-to `scraper_log.txt` (gitignored). To recreate it on another machine:
+to `scraper_log.txt` (gitignored). `StartWhenAvailable` and `WakeToRun` are both enabled, so a
+missed run (laptop off, asleep, or on battery at 14:10) catches up automatically instead of
+silently doing nothing. To recreate it on another machine:
 
 ```powershell
 $action = New-ScheduledTaskAction -Execute "C:\path\to\project\run_scraper.bat" -WorkingDirectory "C:\path\to\project"
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday,Saturday -At 14:10
-Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigger $trigger
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Hours 72)
+Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigger $trigger -Settings $settings
 ```
 
 **Mac/Linux (cron):**
