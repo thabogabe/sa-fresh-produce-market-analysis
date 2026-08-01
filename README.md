@@ -10,6 +10,13 @@ The pipeline runs daily, appending each day's data to a master CSV, then feeding
 5-panel dashboard showing price trends, market comparisons, volatility, and today's price
 against the month-to-date average.
 
+## Live interactive dashboard
+
+**[View the live Power BI report](https://app.powerbi.com/view?r=eyJrIjoiZjUzNjU5OTItY2U2NC00NTFmLWIwYjktZjQ0YTJjYjE3NmRlIiwidCI6IjRiMWI5MDhjLTU1ODItNDM3Ny1iYTA3LWEzNmQ2NWUzNDkzNCIsImMiOjh9)**
+— no login required. Connects directly to `produce_prices_master.csv` and `rainfall_master.csv`
+on this repo, so it reflects the latest data pushed here. Three pages: Price Trends Overview,
+Latest Prices, and Rainfall.
+
 ## Project files
 
 | File | Purpose |
@@ -129,9 +136,9 @@ Register-ScheduledTask -TaskName "Fresh Produce Scraper" -Action $action -Trigge
 - [ ] Build 3+ months of daily data for meaningful seasonal analysis
 - [x] Overlay rainfall/drought data against price spikes (Open-Meteo, not SA Weather Service — see Usage)
 - [ ] Correlate EskomSePush load-shedding stage history against price jumps
-- [ ] Export to Power BI for an interactive dashboard
+- [x] Export to Power BI for an interactive dashboard — see [Live interactive dashboard](#live-interactive-dashboard) above
 - [x] Expand `TARGET_PRODUCE` to onions, garlic, potatoes, spinach
 
 ## Stack
 
-Python 3 · Selenium · pandas · matplotlib · seaborn
+Python 3 · Selenium · pandas · matplotlib · seaborn · Power BI
