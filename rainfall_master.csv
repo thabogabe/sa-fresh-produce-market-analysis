@@ -48,6 +48,7 @@ date,region,rainfall_mm
 2026-08-23,Free State (Bethlehem),0.0
 2026-08-24,Free State (Bethlehem),0.0
 2026-08-25,Free State (Bethlehem),0.0
+2026-08-26,Free State (Bethlehem),0.0
 2026-07-08,Gauteng (Johannesburg),0.0
 2026-07-09,Gauteng (Johannesburg),0.0
 2026-07-10,Gauteng (Johannesburg),0.0
@@ -97,6 +98,7 @@ date,region,rainfall_mm
 2026-08-23,Gauteng (Johannesburg),0.0
 2026-08-24,Gauteng (Johannesburg),0.0
 2026-08-25,Gauteng (Johannesburg),0.0
+2026-08-26,Gauteng (Johannesburg),0.0
 2026-07-08,Gauteng (Pretoria),0.0
 2026-07-09,Gauteng (Pretoria),0.0
 2026-07-10,Gauteng (Pretoria),0.0
@@ -146,6 +148,7 @@ date,region,rainfall_mm
 2026-08-23,Gauteng (Pretoria),0.0
 2026-08-24,Gauteng (Pretoria),0.0
 2026-08-25,Gauteng (Pretoria),0.0
+2026-08-26,Gauteng (Pretoria),0.0
 2026-07-08,KwaZulu-Natal (Pietermaritzburg),0.0
 2026-07-09,KwaZulu-Natal (Pietermaritzburg),0.4
 2026-07-10,KwaZulu-Natal (Pietermaritzburg),0.4
@@ -195,6 +198,7 @@ date,region,rainfall_mm
 2026-08-23,KwaZulu-Natal (Pietermaritzburg),0.0
 2026-08-24,KwaZulu-Natal (Pietermaritzburg),0.0
 2026-08-25,KwaZulu-Natal (Pietermaritzburg),0.2
+2026-08-26,KwaZulu-Natal (Pietermaritzburg),0.8
 2026-07-08,Limpopo (Tzaneen),0.0
 2026-07-09,Limpopo (Tzaneen),0.0
 2026-07-10,Limpopo (Tzaneen),0.0
@@ -244,6 +248,7 @@ date,region,rainfall_mm
 2026-08-23,Limpopo (Tzaneen),0.0
 2026-08-24,Limpopo (Tzaneen),0.5
 2026-08-25,Limpopo (Tzaneen),0.0
+2026-08-26,Limpopo (Tzaneen),1.2
 2026-07-08,Mpumalanga (Nelspruit),0.0
 2026-07-09,Mpumalanga (Nelspruit),0.0
 2026-07-10,Mpumalanga (Nelspruit),0.0
@@ -293,6 +298,7 @@ date,region,rainfall_mm
 2026-08-23,Mpumalanga (Nelspruit),0.0
 2026-08-24,Mpumalanga (Nelspruit),0.0
 2026-08-25,Mpumalanga (Nelspruit),0.0
+2026-08-26,Mpumalanga (Nelspruit),0.1
 2026-07-08,Western Cape (Ceres),0.0
 2026-07-09,Western Cape (Ceres),0.0
 2026-07-10,Western Cape (Ceres),0.0
@@ -342,3 +348,4 @@ date,region,rainfall_mm
 2026-08-23,Western Cape (Ceres),0.0
 2026-08-24,Western Cape (Ceres),0.0
 2026-08-25,Western Cape (Ceres),0.0
+2026-08-26,Western Cape (Ceres),0.0
