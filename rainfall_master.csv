@@ -101,6 +101,9 @@ date,region,rainfall_mm
 2026-10-15,Free State (Bethlehem),0.0
 2026-10-16,Free State (Bethlehem),0.0
 2026-10-17,Free State (Bethlehem),0.0
+2026-10-18,Free State (Bethlehem),0.0
+2026-10-19,Free State (Bethlehem),9.1
+2026-10-20,Free State (Bethlehem),0.0
 2026-07-08,Gauteng (Johannesburg),0.0
 2026-07-09,Gauteng (Johannesburg),0.0
 2026-07-10,Gauteng (Johannesburg),0.0
@@ -713,3 +716,6 @@ date,region,rainfall_mm
 2026-10-15,Western Cape (Ceres),0.0
 2026-10-16,Western Cape (Ceres),0.0
 2026-10-17,Western Cape (Ceres),0.5
+2026-10-18,Western Cape (Ceres),3.4
+2026-10-19,Western Cape (Ceres),1.5
+2026-10-20,Western Cape (Ceres),0.6
